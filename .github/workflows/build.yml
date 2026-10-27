@@ -1,0 +1,18 @@
+name: Build and test Mac app
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test and package universal app
+        run: bash package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChatGPT-Chime-macOS
+          path: dist/*
