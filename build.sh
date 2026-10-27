@@ -8,7 +8,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/module-cache
 build/chime-tests
 SDK="$(/usr/bin/xcrun --sdk macosx --show-sdk-path)"
 for ARCH in arm64 x86_64; do
-    /usr/bin/swiftc -O -sdk "$SDK" -target "$ARCH-apple-macosx13.0" -module-cache-path "$PWD/build/module-cache" Sources/Core.swift Sources/main.swift -framework AppKit -o "build/DesktopChime-$ARCH"
+    /usr/bin/swiftc -O -sdk "$SDK" -target "$ARCH-apple-macosx13.0" -module-cache-path "$PWD/build/module-cache" Sources/Core.swift Sources/ClaudeMonitor.swift Sources/main.swift -framework AppKit -o "build/DesktopChime-$ARCH"
 done
 /usr/bin/lipo -create build/DesktopChime-arm64 build/DesktopChime-x86_64 -output "$APP/Contents/MacOS/DesktopChime"
 /usr/bin/python3 - "$APP" "$VERSION" <<'PY'

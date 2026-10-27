@@ -4,6 +4,41 @@ struct ChimeEvent {
     let kind: String
     let key: String
     let date: Date
+    var source: String = "codex"
+}
+
+// Claude does not expose completion/input categories in its public local logs.
+// Observe only its native notification-submission metadata. This deliberately
+// makes no inference from message text or from generic idle/background logs.
+final class ClaudeEventDetector {
+    private let start: Date
+    private var seen: [String: Date] = [:]
+    private let dates = DateFormatter()
+    init(start: Date = Date()) {
+        self.start = start
+        dates.locale = Locale(identifier: "en_US_POSIX")
+        dates.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSSZ"
+    }
+    func consume(_ line: String, now: Date = Date()) -> ChimeEvent? {
+        guard let data = line.data(using: .utf8),
+              let record = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              record["subsystem"] as? String == "com.apple.UserNotifications",
+              let process = record["processImagePath"] as? String,
+              process.hasSuffix("/Claude.app/Contents/MacOS/Claude"),
+              let user = record["userID"] as? NSNumber, user.uint32Value == getuid(),
+              let message = record["eventMessage"] as? String,
+              message.hasPrefix("[com.anthropic.claudefordesktop] Adding notification request "),
+              let token = message.range(of: #"Adding notification request [A-Za-z0-9_-]+ to destinations:"#, options: .regularExpression),
+              let stamp = record["timestamp"] as? String, let date = dates.date(from: stamp),
+              date >= start, now.timeIntervalSince(date) < 30, date.timeIntervalSince(now) < 5 else { return nil }
+        // Claude reuses notification identifiers across turns. Deduplicate a
+        // single submission, not all future submissions with the same tag.
+        let key = "claude:" + String(message[token]) + ":" + stamp
+        seen = seen.filter { now.timeIntervalSince($0.value) < 3600 }
+        guard seen[key] == nil else { return nil }
+        seen[key] = now
+        return ChimeEvent(kind: "attention", key: key, date: date, source: "claude")
+    }
 }
 
 // Use only the final notification delivery record, not the duplicate renderer
